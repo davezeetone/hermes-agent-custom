@@ -371,43 +371,11 @@ def _ambient_file_safety_profile_name() -> str:
 
 
 def _active_profile_line(agent: Any) -> str:
-    """Name the running profile so the agent doesn't conflate ``~/.hermes/skills``
-    (default) with ``~/.hermes/profiles/<active>/skills``.  Resolved from the
-    agent's OWN home first (a build thread that lost the ContextVar would
-    otherwise print "default" for a bot profile)."""
-    _agent_home_path = _agent_home(agent)
+    """Name the running profile so the agent doesn't conflate profile contexts."""
     active_profile = _active_profile_name(agent, _ambient_file_safety_profile_name)
     if active_profile == "default":
-        # With an explicit agent home, the default profile's data lives at the
-        # ROOT (get_hermes_home() on a bound profile session is the PROFILE dir).
-        # Without one, keep the ambient (patchable) resolution byte-identical.
-        _root_str = str(get_default_hermes_root() if _agent_home_path is not None else get_hermes_home())
-        return (
-            "Active Hermes profile: default. Other profiles (if any) live "
-            "under " + _root_str + "/profiles/<name>/. Each profile has its own "
-            "skills/, plugins/, cron/, and memories/ that affect a different "
-            "session than this one. Do not modify another profile's "
-            "skills/plugins/cron/memories unless the user explicitly directs "
-            "you to."
-        )
-    # A non-default name is only returned when the resolved home is ALREADY
-    # <root>/profiles/<name>, so the profile home is the session home itself.
-    profile_home = str(_agent_home_path) if _agent_home_path is not None else str(get_hermes_home())
-    # A non-default name is only ever returned when the resolved home is ALREADY <root>/profiles/<name> —
-    # that is exactly how both _profile_name_for_home() and _resolve_active_profile_name() derive it. So the
-    # profile home is the session home itself; appending /profiles/<name> again doubled it (#72894). The
-    # default profile's data sits at the ROOT (get_default_hermes_root()), which in ambient profile mode is
-    # NOT get_hermes_home().
-    default_root = get_default_hermes_root()
-    return (
-        f"Active Hermes profile: {active_profile}. This session reads "
-        f"and writes {profile_home}/. The default "
-        f"profile's data lives at {default_root}/skills/, {default_root}/plugins/, "
-        f"{default_root}/cron/, {default_root}/memories/ — those belong to a "
-        f"different session run from a different shell. Do NOT modify "
-        f"another profile's skills/plugins/cron/memories unless the user "
-        f"explicitly directs you to."
-    )
+        return "Active Hermes profile: default."
+    return f"Active Hermes profile: {active_profile}."
 
 
 def _default_platform_hint(platform_key: str) -> str:
@@ -554,9 +522,19 @@ def _guidance_parts(agent: Any) -> list[str]:
     """Universal + tool-aware + model-gated guidance blocks, each gated by its config.yaml key."""
     parts: list[str] = []
     if agent.valid_tool_names:
+        active_profile = _active_profile_name(
+            agent, _ambient_file_safety_profile_name
+        )
+        task_guidance = TASK_COMPLETION_GUIDANCE
+        if active_profile == "confidant":
+            task_guidance = task_guidance.replace(
+                "When the user asks you to build,",
+                "If the user asks you to build,",
+                1,
+            )
         parts += [
             text for flag, text in (
-                ("_task_completion_guidance", TASK_COMPLETION_GUIDANCE),
+                ("_task_completion_guidance", task_guidance),
                 ("_parallel_tool_call_guidance", PARALLEL_TOOL_CALL_GUIDANCE),
             ) if getattr(agent, flag, True)
         ]
