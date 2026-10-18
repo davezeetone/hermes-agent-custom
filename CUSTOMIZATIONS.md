@@ -94,6 +94,16 @@ def _guidance_parts(agent: Any) -> list[str]:
         ]
     parts.append(_tool_guidance_block(agent))  # None/empty entries are dropped by _join_tier
 ```
+
+## 3. Pin local Whisper transcription to GPU 1
+
+- **File:** `tools/transcription_local.py`
+- **Function:** `_create_whisper_model()`
+- **Change:** When the requested device is `cuda`, set `device_index=1` when creating the faster-whisper model.
+- **Reason:** Run local Whisper transcription on the GTX 1650 SUPER rather than the primary RTX 4070, preserving the main GPU's VRAM for LLM inference.
+- **Scope:** Global — applies to CUDA-based local transcription.
+
+
 ## Future changes
 
 Record each additional customization here, including its location, exact change, reason, and whether it applies globally or only to a particular profile.

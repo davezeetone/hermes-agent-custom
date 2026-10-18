@@ -175,6 +175,8 @@ def _create_whisper_model(model_name: str, *, device: str, compute_type: str):
     from faster_whisper import WhisperModel
 
     kwargs = {"device": device, "compute_type": compute_type}
+    if device == "cuda":
+        kwargs["device_index"] = 1
     try:
         return WhisperModel(model_name, local_files_only=True, **kwargs)
     except (_hub_cache_miss_error(), RuntimeError) as exc:
